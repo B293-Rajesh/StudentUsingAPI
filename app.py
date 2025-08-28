@@ -4,8 +4,8 @@ import re
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import faiss
-import requests
 import os
+from huggingface_hub import InferenceClient
 
 # -----------------------------
 # PDF Text Loader
@@ -75,15 +75,18 @@ def index_pdf(uploaded_file):
     return embed_model, store, chunks
 
 # -----------------------------
-# Call Hugging Face Inference API
+# Hugging Face Inference with InferenceClient
 # -----------------------------
-def query_hf_api(prompt, model_id="meta-llama/Llama-3.2-3B-Instruct"):
-    api_url = f"https://api-inference.huggingface.co/models/{model_id}"
-    headers = {"Authorization": f"Bearer {os.getenv('HF_TOKEN')}"}
-    payload = {"inputs": prompt, "parameters": {"max_new_tokens": 300}}
-    response = requests.post(api_url, headers=headers, json=payload)
-    response.raise_for_status()
-    return response.json()[0]["generated_text"]
+def query_hf_api(prompt, model_id="HuggingFaceH4/zephyr-7b-beta"):
+    HF_TOKEN = os.getenv("HF_TOKEN")
+    client = InferenceClient(model=model_id, token=HF_TOKEN)
+    response = client.text_generation(
+        prompt,
+        max_new_tokens=300,
+        temperature=0.7,
+        do_sample=True
+    )
+    return response
 
 # -----------------------------
 # Streamlit UI
@@ -106,9 +109,12 @@ if uploaded_file and user_input:
         prompt = f"""
 You are a helpful tutor. Based only on the context below, answer the question in complete sentences. 
 If the context does not contain enough information, say "I could not find this in the text."
+
 Context:
 {context}
+
 Question: {user_input}
+
 Answer:
 """
 
