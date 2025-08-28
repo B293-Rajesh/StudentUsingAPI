@@ -1,4 +1,3 @@
-from huggingface_hub import InferenceClient
 import streamlit as st
 import fitz  # PyMuPDF
 import re
@@ -6,6 +5,15 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 import faiss
 import os
+from huggingface_hub import InferenceClient
+
+# -----------------------------
+# Hugging Face Client
+# -----------------------------
+HF_TOKEN = os.getenv("HF_TOKEN")  # Make sure you set this in your environment
+LLM_MODEL = "google/gemma-2-2b-it"
+
+client = InferenceClient(model=LLM_MODEL, token=HF_TOKEN)
 
 # -----------------------------
 # PDF Text Loader
@@ -75,21 +83,14 @@ def index_pdf(uploaded_file):
     return embed_model, store, chunks
 
 # -----------------------------
-# Hugging Face Inference
+# Query Hugging Face API (Gemma uses "conversational")
 # -----------------------------
-HF_TOKEN = os.getenv("HF_TOKEN")
-LLM_MODEL = "google/gemma-2-2b-it"
-
-client = InferenceClient(model=LLM_MODEL, token=HF_TOKEN)
-
 def query_hf_api(prompt):
-    response = client.text_generation(
-        prompt,
-        max_new_tokens=300,
-        temperature=0.7,
-        top_p=0.9
+    response = client.conversational(
+        inputs=prompt,
+        parameters={"max_new_tokens": 300}
     )
-    return response
+    return response.generated_text
 
 # -----------------------------
 # Streamlit UI
@@ -112,8 +113,10 @@ if uploaded_file and user_input:
         prompt = f"""
 You are a helpful tutor. Based only on the context below, answer the question in complete sentences. 
 If the context does not contain enough information, say "I could not find this in the text."
+
 Context:
 {context}
+
 Question: {user_input}
 Answer:
 """
